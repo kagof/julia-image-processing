@@ -1,14 +1,14 @@
 function kuwahara(image_in, region_size::Int=13)
     image = RGB.(image_in)
     brightnesses = channelview(float.(HSV.(image)))[3, :, :]
-    result = similar(image)
+    result = zeros(RGB{N0f8}, size(image)...)
 
     quadrant_size = Int(ceil(region_size / 2))
 
     avgColor(colors) = RGB(
-        sum(map(c -> c.r, colors), init=0) / length(colors),
-        sum(map(c -> c.g, colors), init=0) / length(colors),
-        sum(map(c -> c.b, colors), init=0) / length(colors)
+        N0f8(sum(map(c -> c.r, colors), init=0) / length(colors)),
+        N0f8(sum(map(c -> c.g, colors), init=0) / length(colors)),
+        N0f8(sum(map(c -> c.b, colors), init=0) / length(colors))
     )
 
     keepInBounds(arr, dim) = filter(coord -> coord > 0 && coord <= size(image, dim), arr)
@@ -21,7 +21,7 @@ function kuwahara(image_in, region_size::Int=13)
         quad_2 = [keepInBounds(top:top+quadrant_size-1, 1), keepInBounds((left+quadrant_size-1):(left+region_size-1), 2)]
         quad_3 = [keepInBounds((top+quadrant_size-1):(top+region_size-1), 1), keepInBounds(left:(left+quadrant_size-1), 2)]
         quad_4 = [keepInBounds((top+quadrant_size-1):(top+region_size-1), 1), keepInBounds((left+quadrant_size-1):(left+region_size-1), 2)]
-        
+
         std_1 = std(brightnesses[quad_1...])
         std_2 = std(brightnesses[quad_2...])
         std_3 = std(brightnesses[quad_3...])

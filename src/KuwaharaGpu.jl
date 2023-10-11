@@ -1,12 +1,12 @@
-function kuwaharaGpu(image_in, region_size::Int = 13, threads_per_block::Int = 256)
+function kuwaharaGpu(image_in, region_size::Int=13, threads_per_block::Int=256)
     region_size::Int32 = Int32(region_size)
     image = RGB.(image_in) |> cu
     size_y = Int32(size(image, 1))
     size_x = Int32(size(image, 2))
     total_size = Int32(length(image))
-    brightnesses = channelview(float.(HSV.(image_in)))[3,:,:] |> cu
+    brightnesses = channelview(float.(HSV.(image_in)))[3, :, :] |> cu
     result = CUDA.zeros(size(channelview(float.(image_in)))...)
-    
+
     quadrant_size = Int32(ceil(region_size / 2))
 
     function computePixelKernel!(image, quadrants, brightnesses, result)
@@ -52,7 +52,7 @@ function kuwaharaGpu(image_in, region_size::Int = 13, threads_per_block::Int = 2
             # using the average brightness to compute the standard deviation
             for i in 1:quadrant_size
                 for j in 1:quadrant_size
-                    (quadrants[pos, q, 1, i] > 0) && (quadrants[pos, q, 2, j] > 0) && (sum_terms += (brightnesses[quadrants[pos, q, 1, i], quadrants[pos, q, 2, j]] - avg_bright) ^ 2)
+                    (quadrants[pos, q, 1, i] > 0) && (quadrants[pos, q, 2, j] > 0) && (sum_terms += (brightnesses[quadrants[pos, q, 1, i], quadrants[pos, q, 2, j]] - avg_bright)^2)
                 end
             end
 
@@ -65,12 +65,12 @@ function kuwaharaGpu(image_in, region_size::Int = 13, threads_per_block::Int = 2
 
         # choose the quadrant with the lowest standard deviation in brightness
         min_std = min(std_1, std_2, std_3, std_4)
-        winning_quadrant=1
+        winning_quadrant = 1
         (min_std == std_1) && (winning_quadrant = 1)
         (min_std == std_2) && (winning_quadrant = 2)
         (min_std == std_3) && (winning_quadrant = 3)
         (min_std == std_4) && (winning_quadrant = 4)
-        
+
         # computing the average pixel color in the winning quadrant
         sum_r = zero(result[1, 1, 1])
         sum_g = zero(result[1, 1, 1])
@@ -97,16 +97,16 @@ function kuwaharaGpu(image_in, region_size::Int = 13, threads_per_block::Int = 2
             result[2, y, x] = avg_g
             result[3, y, x] = avg_b
         end
-        
+
         return nothing
     end
 
-    
+
     # There's going to be a much more space & time efficient way to do this, quadrants has one block of memory per pixel, with space for 4 quadrants worth of x and y coordinates
     quadrants = CUDA.zeros(Int32, total_size, 4, 2, quadrant_size)
 
     threads_actual = min(threads_per_block, total_size)
 
-    CUDA.@time @cuda threads=threads_actual blocks=Int(ceil(total_size / threads_actual)) computePixelKernel!(image, quadrants, brightnesses, result)
+    CUDA.@time @cuda threads = threads_actual blocks = Int(ceil(total_size / threads_actual)) computePixelKernel!(image, quadrants, brightnesses, result)
     return colorview(RGB, Array(result))
 end
